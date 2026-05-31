@@ -9,3 +9,13 @@ Projeto prático de implementação do algoritmo Q-Learning, na área de Intelig
 | Felipe Almeida Albuquerque de Holanda | ***faah*** |
 | Guilherme Galindo Zloccowick | ***ggz*** |
 | Kaynan Roberth Torres Silva | ***krts*** |
+
+<br>
+  
+## 🗂️ Estrutura do Repositório
+O projeto está organizado para facilitar a análise e execução, modelado com o seguinte esqueleto:
+
+* 📄 `README` -> Documentação do projeto e instruções a serem lidas;
+* 📄 `client.py` -> Arquivo voltado para a implementação do algoritmo Q-Learning;
+* 📄 `connection.py` -> Arquivo de conexão do jogo com o servidor responsável local dele;
+* 📄 `resultado.txt` -> Arquivo de texto onde a tabela Q é apresentada como resultado, cada linha representa um estado e cada coluna uma ação no respectivo estado.
