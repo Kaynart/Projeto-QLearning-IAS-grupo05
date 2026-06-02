@@ -2,6 +2,16 @@
 import connection as cn # importação do arquivo de connection para conexão local do jogo
 from random import randint # importação de gerador aleatório de números pra randomização da ação
 
+
+def getBinario(stringBinaria):
+    """
+    Função para facilitar a conversão de um valor string em binário para int
+    :string: string contendo o texto do valor binário
+    :return: retorna o valor convertido para inteiro
+    """
+    return int(stringBinaria, 2)
+
+
 # Realização da conexão com o jogo através da porta
 conexao_jogo = cn.connect(2037)
 
