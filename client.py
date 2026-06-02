@@ -26,6 +26,18 @@ def getintAcao(StrAcao):
         return 2
 
 
+def getLinhaTabelaQ(plataforma, direcao):
+    """
+    Funcao para converter o indicador da plataforma e da direcao do Amongois na linha especifica da tabela Q correspondente
+    :plataforma: int que indica a plataforma do Amongois
+    :direcao: int que indica a direcao do Amongois 
+    :return: retorna a linha da tabela Q que representa o estado atual considerando plataforma e direcao
+    """
+
+    return (plataforma * 4) + direcao
+
+
+
 
 # Realização da conexão com o jogo através da porta
 conexao_jogo = cn.connect(2037)
