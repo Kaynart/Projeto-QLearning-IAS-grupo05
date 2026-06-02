@@ -12,6 +12,21 @@ def getBinario(stringBinaria):
     return int(stringBinaria, 2)
 
 
+def getintAcao(StrAcao):
+    """
+    Retorna um inteiro correspondente a acao aplicada representada pela string 'left', 'right' ou 'jump'
+    :StrAcao: string que indica a acao aplicada
+    :return: retorna o inteiro correspondente a acao aplicada
+    """
+    if (StrAcao == "left"):
+        return 0
+    elif (StrAcao == "right"):
+        return 1
+    elif (StrAcao == "jump"):
+        return 2
+
+
+
 # Realização da conexão com o jogo através da porta
 conexao_jogo = cn.connect(2037)
 
