@@ -61,13 +61,19 @@ def QLearning(matrizTabelaQ, linhaAntigoEstado, recompensaImediata, acaoAplicada
     matrizTabelaQ[linhaAntigoEstado][intAcao] = atualizacaoValorQ
 
 
-
 # Realização da conexão com o jogo através da porta
 conexao_jogo = cn.connect(2037)
 
 # Listagem de ações pra fazer a equivalência do random int (que será o índice) com a string de ação
 acoes = ["jump", "left", "right"]
 
+# Gera a Tabela Q por meio de uma matriz onde as linhas são os estados e as colunas, as ações 
+q_table = [[0.0 for _ in range(3)] for _ in range(96)] # 96 linhas com 3 elementos (colunas) inicializadno em 0.0
+
+
+estadoAnterior = 0 # DEFINICAO DO ESTADO INICIAL
+
+#Aqui vocês irão colocar seu algoritmo de aprendizado
 # Loop do jogo
 while True:
     indice = randint(0,2) # pega o índice aleatório pra ação
@@ -75,6 +81,32 @@ while True:
 
     estado, recompensa = cn.get_state_reward(conexao_jogo, acao_escolhida) # função do conecction.py que devolve o novo estado e a recompensa recebida pela ação executada
 
-    print (f"O Amongois realizou a ação {acao_escolhida} e parou no estado {estado} com recompensa {recompensa}!") # impressão geral pra acompanhamento
+    print(f"O Amongois realizou a ação {acao_escolhida} e parou no estado {estado} com recompensa {recompensa}!") # impressão geral pra acompanhamento
 
-#Aqui vocês irão colocar seu algoritmo de aprendizado
+    # Trata o estado e a direcao, como binarios, para obter a plataforma correspondente e a direcao nela
+    bits_estado = estado[2:7] # corta a string para a parte binaria somente do estado
+    plataforma = getBinario(bits_estado) # converte
+
+    bits_direcao = estado[7:9] # corta a string para a parte binaria somente da direcao
+    direcao = getBinario(bits_direcao) # converte
+
+    # Pega a linha da tabela correspondente a esse estado novo alcancado
+    linhaNovoEstado = getLinhaTabelaQ(plataforma, direcao)
+
+    # Aplicação do Q-Learning para atualização do valor da ação executada no estado atual
+    if (estadoAnterior is not None):
+        QLearning(q_table, estadoAnterior, recompensa, acao_escolhida, linhaNovoEstado)
+
+    # Detecção de morte
+    if (recompensa == -1): 
+        estado_anterior = 0
+        continue # continua para a nova execucao
+
+    # Armazenamento das execuções anteriores para a nova iteração do Q-Learning
+    estadoAnterior = linhaNovoEstado
+    # acaoAnterior = acao_escolhida
+
+    print(f"{q_table[estadoAnterior]}")
+    print()
+
+
