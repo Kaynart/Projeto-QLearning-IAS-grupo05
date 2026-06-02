@@ -37,6 +37,29 @@ def getLinhaTabelaQ(plataforma, direcao):
     return (plataforma * 4) + direcao
 
 
+def QLearning(matrizTabelaQ, linhaAntigoEstado, recompensaImediata, acaoAplicada, linhaNovoEstado, a=0.5, y=1):
+    """
+    
+    :return:
+    """
+
+    taxaAprendizagem = a
+    gamma = y
+
+    intAcao = getintAcao(acaoAplicada)
+
+    # Pega o valor 'antigo' do estado testado de acordo com a tabela Q
+    valorInicialQ = matrizTabelaQ[linhaAntigoEstado][intAcao]
+
+    novoEstadoLeft =  matrizTabelaQ[linhaNovoEstado][0] 
+    novoEstadoRight = matrizTabelaQ[linhaNovoEstado][1] 
+    novoEstadoJump =  matrizTabelaQ[linhaNovoEstado][2] 
+    
+    # Equação de bellman para atualização do valor da ação realizada
+    atualizacaoValorQ = valorInicialQ + taxaAprendizagem*(recompensaImediata + gamma*(max(novoEstadoLeft, novoEstadoRight, novoEstadoJump)) - valorInicialQ) 
+
+    matrizTabelaQ[linhaAntigoEstado][intAcao] = atualizacaoValorQ
+
 
 
 # Realização da conexão com o jogo através da porta
