@@ -1,7 +1,8 @@
 # Importações
 import connection as cn             # importação do arquivo de connection para conexão local do jogo
 from random import randint, random  # importação de gerador aleatório de números pra randomização da ação
-import time                         # importação de pausa para garantir integridade do loop do jogo e algoritmo
+import time                          # importação de pausa para garantir integridade do loop do jogo e algoritmo
+import os                            # importação para checar se o arquivo txt já existe
 
 # =====================================================================
 #        Function: Transforma determinada binaria em inteiro
@@ -42,7 +43,6 @@ def getLinhaTabelaQ(plataforma, direcao):
     :direcao: int que indica a direcao do Amongois 
     :return: retorna a linha da tabela Q que representa o estado atual considerando plataforma e direcao
     """
-
     return (plataforma * 4) + direcao
 
 
@@ -53,16 +53,7 @@ def QLearning(matrizTabelaQ, linhaAntigoEstado, recompensaImediata, acaoAplicada
     """
     Função que aplica o algoritmo de QLearning e atualiza o valor de cada acao testada e passada como parametro na matriz que representa a tabela Q;
     aplicação de aprendizado por reforço para valorar, por teste de ações, cada uma em respectivos estados
-    :matrizTabelaQ: matriz que representa a tabela Q do algoritmo de aprendizado por reforço
-    :linhaAntigoEstado: número da linha na tabela que representa o estado no qual aplicou-se a ação
-    :recompensaImediata: valor da recompensa imediatada recebida
-    :acaoAplicada: string da ação que foi aplicada
-    :linhaNovoEstado: número da linha na tabela que representa o novo estado alcançado com a ação aplicada
-    :a: alpha - parâmetro de taxa de aprendizado
-    :y: gamma - parâmetro de valorização das ações futuras
-    :return:
     """
-
     taxaAprendizagem = a
     gamma = y
 
@@ -81,17 +72,12 @@ def QLearning(matrizTabelaQ, linhaAntigoEstado, recompensaImediata, acaoAplicada
     matrizTabelaQ[linhaAntigoEstado][intAcao] = atualizacaoValorQ
 
 
-
 # =====================================================================
 #       Function: Politica de escolha de acao Epsilon Greedy
 # =====================================================================
 def escolher_acao_EpsilonGreedy(matrizTabelaQ, linhaEstadoAtual, epsilon):
     """
     Função com comportamento da política de escolha de ação Epsilon Greedy
-    :matrizTabelaQ: matriz que representa a tabela Q do algoritmo de aprendizado por reforço
-    :linhaAntigoEstado: número da linha na tabela que representa o estado no qual aplicou-se a ação
-    :epsilon: parâmetro que indica a chance de ocorrer exploration, e seu complemento indica exploitation
-    :return:
     """
     # Gera uma chance aleatoria entre 0.0 e 1.0
     chance = random()
@@ -107,24 +93,60 @@ def escolher_acao_EpsilonGreedy(matrizTabelaQ, linhaEstadoAtual, epsilon):
         return valores_q_estado.index(maior_valor)          # retorna o indice dessa acao
 
 
-
 def decair_epsilon(epsilon, decay_rate, epsilon_min=0.1):
     """
-    Função que faz o tratamento do epsilon para a política do Epsilon Greedy, balanceando Exploration e Exploitation nos
-    melhores momentos para serem usados
-    :epsilon: parâmetro que indica a chance de ocorrer exploration, e seu complemento indica exploitation
-    :decayrate: parâmetro de taxa de decaimento do epsilon a cada execução
-    :epsilon_min: valor mínimo que epsilon pode assumir
-    :return:
+    Função que faz o tratamento do epsilon para a política do Epsilon Greedy
     """
-
     if (epsilon < epsilon_min): # nao pode ficar menor que o minimo definido
         return epsilon_min
     
     return epsilon - decay_rate # desconta a taxa
 
+
+# =====================================================================
+#         Function:Salvar e Carregar a Q-Table
+# =====================================================================
+def salvar_tabela_q(matrizTabelaQ, nome_arquivo="resultado.txt"):
+    try:
+        with open(nome_arquivo, "w") as f:
+            for linha in matrizTabelaQ:
+                # Escreve Left, Right e Jump separados por espaço, sem cabeçalhos
+                f.write(f"{linha[0]} {linha[1]} {linha[2]}\n")
+        
+        print(f"-> [BACKUP] Tabela Q salva com sucesso em '{nome_arquivo}'!")
+    
+    except Exception as e:
+        print(f"Erro ao salvar o arquivo: {e}")
+
+
+def carregar_tabela_q(nome_arquivo="resultado.txt"):
+    tabela = [[0.0 for _ in range(3)] for _ in range(96)]
+    
+    # Se a tabela já existir, tenta ler os valores do arquivo txt para continuar o treino anterior
+    if os.path.exists(nome_arquivo): 
+        try:
+            with open(nome_arquivo, "r") as f:
+                linhas = f.readlines()
+                for i, linha in enumerate(linhas):
+                    if i < 96:
+                        valores = [float(x) for x in linha.strip().split()]
+                        if len(valores) == 3:
+                            tabela[i] = valores
+            
+            print(f"-> [SUCESSO] Memória carregada de '{nome_arquivo}'. Continuando treino anterior!")
+        
+        except Exception as e:
+            print(f"Erro ao ler arquivo existente ({e}). Inicializando com zeros.")
+    
+    # Se a tabela não existir, inicia do zero
+    else:
+        print(f"-> [AVISO] '{nome_arquivo}' não encontrado. Iniciando cérebro do zero (0.0).")
+        
+    return tabela
+
+
 # ======================================================================
-#                      INICIO DA APLICACAO PRO JOGO
+#                     INICIO DA APLICACAO PRO JOGO
 # ======================================================================
 # Realização da conexão com o jogo através da porta
 conexao_jogo = cn.connect(2037)
@@ -132,8 +154,8 @@ conexao_jogo = cn.connect(2037)
 # Listagem de ações pra fazer a equivalência do random int (que será o índice) com a string de ação
 acoes = ["left", "right", "jump"]
 
-# Gera a Tabela Q por meio de uma matriz onde as linhas são os estados e as colunas, as ações 
-q_table = [[0.0 for _ in range(3)] for _ in range(96)] # 96 linhas com 3 elementos (colunas) inicializadno em 0.0
+# <--- MODIFICADO: Em vez de gerar do zero fixo, ele tenta ler o arquivo txt primeiro
+q_table = carregar_tabela_q("resultado.txt")
 
 # DEFINIÇÃO DO ESTADO INICIAL
 linhaAntigoEstado = 0 
@@ -144,29 +166,24 @@ epsilon = 1.0              # começa em 100% aleatório
 epsilon_min = 0.1          # mantém 10% de chance exploração no final
 decay_rate = 0.0005        # taxa de decaimento por ação
 
+# variável para definir se quer mover o boneco ou somente analisar o algoritmo automatico
+control = 2
+
 # =======================================================================
 #              PRATICA DO JOGO E APLICACAO DO ALGORITMO
 # =======================================================================
-#Aqui vocês irão colocar seu algoritmo de aprendizado
 
-# variável para definir se quer mover o boneco ou somente analisar o algoritmo automatico
-control = 2
-# 0 -> Controle Manual com jogador
-# 1 -> Algoritmo QLearning com ações aleatórias
-# 2 -> Algoritmo QLearning com Epsilon Greedy
-
-# Loop do jogo
 while True:
     # =============== DECISAO MANUAL ================
     if (control == 0):
         indice = input(f"SELECIONA UMA AÇÃO [0 - left | 1 = right | 2 = jump]: ")
-        acao_escolhida = acoes[int(indice)]         # obtendo, enfim, a acao decidida/
+        acao_escolhida = acoes[int(indice)]
 
 
     # =============== DECISAO ALGORITMICA ALEATÓRIA ================
     elif (control == 1):
-        indice = randint(0,2)                       # pega o índice aleatório pra ação
-        acao_escolhida = acoes[indice]              # obtendo, enfim, a ação randomizada
+        indice = randint(0,2)                               # pega o índice aleatório pra ação
+        acao_escolhida = acoes[indice]                      # obtendo, enfim, a ação randomizada
 
 
     # =============== DECISAO ALGORITMICA EPSILON-GREEDY ================
@@ -177,36 +194,39 @@ while True:
 
 
     # ============ Obtencao do estado e recompensa pela acao executada ==============
-    estado, recompensa = cn.get_state_reward(conexao_jogo, acao_escolhida) # função do conecction.py que devolve o novo estado e a recompensa recebida pela ação executada
+    estado, recompensa = cn.get_state_reward(conexao_jogo, acao_escolhida) 
 
-    if (control == 2) : print(f"{epsilon:.4f}\n")
-    print(f"O Amongois realizou a ação {acao_escolhida} e parou no estado {estado} com recompensa {recompensa}!") # impressão geral pra acompanhamento
+    if (control == 2) : print(f"Epsilon atual: {epsilon:.4f}")
+    print(f"O Amongois realizou a ação {acao_escolhida} e parou no estado {estado} com recompensa {recompensa}!")
 
 
-    # ============ Tratamento do estado e da direcao, binarios, para obter a plataforma correspondente e a direcao nela =============
-    bits_estado = estado[2:7] # corta a string para a parte binaria somente do estado
-    plataforma = getBinario(bits_estado) # converte
+    # ============ Tratamento do estado e da direcao, binarios =============
+    bits_estado = estado[2:7] 
+    plataforma = getBinario(bits_estado) 
 
-    bits_direcao = estado[7:9] # corta a string para a parte binaria somente da direcao
-    direcao = getBinario(bits_direcao) # converte
-
+    bits_direcao = estado[7:9] 
+    direcao = getBinario(bits_direcao) 
 
     # Pega a linha da tabela correspondente a esse estado novo alcancado
     linhaNovoEstado = getLinhaTabelaQ(plataforma, direcao)
 
 
-    # ============== Aplicação do Q-Learning para atualização do valor da ação executada no estado atual ==============
-    if (recompensa != -100 and recompensa != 200): # aqui é verificado se ele nao morreu nem ganhou, implicando que o aprendizado tem que considerar a proxima casa ligada a atual
-        QLearning(q_table, linhaAntigoEstado, recompensa, acao_escolhida, linhaNovoEstado) # y = 1 -> pois esta dentro de um sequenciamento de acoes
+    # ============== Aplicação do Q-Learning para atualização ==============
+    if (recompensa != -100 and recompensa != 200): 
+        QLearning(q_table, linhaAntigoEstado, recompensa, acao_escolhida, linhaNovoEstado) 
 
 
-    # ============== Detecção de morte ou vitoria (quando uma sequencia de acoes acaba) ===========
+    # ============== Detecção de morte ou vitoria ===========
     else:  # quando ele morre ou ganha
-        QLearning(q_table, linhaAntigoEstado, recompensa, acao_escolhida, linhaNovoEstado, y=0) # y = 0 -> seu sequenciamento de acoes foi interrompido por uma morte e ele reinicia, entao ele nao pode considerar no aprendizado a proxima casa para valorar a atual
+        QLearning(q_table, linhaAntigoEstado, recompensa, acao_escolhida, linhaNovoEstado, y=0) 
+        
+        # Atualiza a tabela após derrota ou vitoria
+        salvar_tabela_q(q_table, "resultado.txt")
+        
         time.sleep(0.4)
         
     # Armazenamento das execuções anteriores para a nova iteração do Q-Learning
     linhaAntigoEstado = linhaNovoEstado
 
-    print(f"{q_table[linhaAntigoEstado]}")
-    print()
+    print(f"Valores Q do estado atual: {q_table[linhaAntigoEstado]}")
+    print("-" * 50)
