@@ -197,6 +197,26 @@ def carregar_tabela_q(nome_arquivo="resultado.txt"):
     return tabela
 
 
+# =====================================================================
+#    Function: Penalizacao por giros redundantes
+# =====================================================================
+def penaliza_giros(recompensa, qtd_GirosRedundantes):
+    """
+    
+    
+    """
+
+    if (qtd_GirosRedundantes == 1): return recompensa
+
+    # ca
+    penalidade = 3 ** (qtd_GirosRedundantes//2)
+
+    return recompensa - penalidade
+
+
+
+
+
 # ======================================================================
 #                      INICIO DA APLICACAO PRO JOGO
 # ======================================================================
@@ -216,7 +236,10 @@ linhaAntigoEstado = 0
 ultimo_spawn = 0           # guarda o ultimo spawn do boneco pra ajustar o epsilon quando mudar o spawn
 epsilon = 1.0              # começa em 100% aleatório
 epsilon_min = 0.1          # mantém 10% de chance exploração no final
-decay_rate = 0.00025        # taxa de decaimento por ação
+decay_rate = 0.0001        # taxa de decaimento por ação
+
+# Política de recompensa negativa gradual ao girar infinitamente
+qtd_GirosRedundantes = 0
 
 # =======================================================================
 #              PRATICA DO JOGO E APLICACAO DO ALGORITMO
@@ -271,11 +294,17 @@ while True:
 
     # ============== Aplicação do Q-Learning para atualização do valor da ação executada no estado atual ==============
     if (recompensa != -100 and recompensa != 300): # aqui é verificado se ele nao morreu nem ganhou, implicando que o aprendizado tem que considerar a proxima casa ligada a atual
-        QLearning(q_table, linhaAntigoEstado, recompensa, acao_escolhida, linhaNovoEstado) # y = 1 -> pois esta dentro de um sequenciamento de acoes
+        if (acao_escolhida == "jump"):
+            qtd_GirosRedundantes = 0
+        else:
+            qtd_GirosRedundantes += 1
+            recompensa = penaliza_giros(recompensa, qtd_GirosRedundantes) # penaliza giros redundantes se girou mais uma vez
 
+        QLearning(q_table, linhaAntigoEstado, recompensa, acao_escolhida, linhaNovoEstado, y=0.9) 
 
     # ============== Detecção de morte ou vitoria (quando uma sequencia de acoes acaba) ===========
     else:  # quando ele morre ou ganha
+        qtd_GirosRedundantes = 0 # reinicia a contagem de giros consecutivos
         QLearning(q_table, linhaAntigoEstado, recompensa, acao_escolhida, linhaNovoEstado, y=0) # y = 0 -> seu sequenciamento de acoes foi interrompido por uma morte/vitoria e ele respawna, entao ele nao pode considerar no aprendizado a proxima casa para valorar a atual
         
         plataforma_atual = linhaNovoEstado//4
