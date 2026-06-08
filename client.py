@@ -2,6 +2,7 @@
 import connection as cn             # importação do arquivo de connection para conexão local do jogo
 from random import randint, random  # importação de gerador aleatório de números pra randomização da ação
 import time                         # importação de pausa para garantir integridade do loop do jogo e algoritmo
+import math                         # para tratamento do epsilon greedy quando mudar a plataforma inicial
 
 # =====================================================================
 #        Function: Transforma determinada binaria em inteiro
@@ -60,7 +61,7 @@ def QLearning(matrizTabelaQ, linhaAntigoEstado, recompensaImediata, acaoAplicada
     :linhaNovoEstado: número da linha na tabela que representa o novo estado alcançado com a ação aplicada
     :a: alpha - parâmetro de taxa de aprendizado
     :y: gamma - parâmetro de valorização das ações futuras
-    :return:
+    :return: não retorna nada
     """
 
     taxaAprendizagem = a
@@ -91,7 +92,7 @@ def escolher_acao_EpsilonGreedy(matrizTabelaQ, linhaEstadoAtual, epsilon):
     :matrizTabelaQ: matriz que representa a tabela Q do algoritmo de aprendizado por reforço
     :linhaAntigoEstado: número da linha na tabela que representa o estado no qual aplicou-se a ação
     :epsilon: parâmetro que indica a chance de ocorrer exploration, e seu complemento indica exploitation
-    :return:
+    :return: retorna o indice da acao que deve ser escolhida depois da política
     """
     # Gera uma chance aleatoria entre 0.0 e 1.0
     chance = random()
@@ -107,7 +108,9 @@ def escolher_acao_EpsilonGreedy(matrizTabelaQ, linhaEstadoAtual, epsilon):
         return valores_q_estado.index(maior_valor)          # retorna o indice dessa acao
 
 
-
+# =====================================================================
+#       Function: Decaimento do epsilon para balancear
+# =====================================================================
 def decair_epsilon(epsilon, decay_rate, epsilon_min=0.1):
     """
     Função que faz o tratamento do epsilon para a política do Epsilon Greedy, balanceando Exploration e Exploitation nos
@@ -115,13 +118,41 @@ def decair_epsilon(epsilon, decay_rate, epsilon_min=0.1):
     :epsilon: parâmetro que indica a chance de ocorrer exploration, e seu complemento indica exploitation
     :decayrate: parâmetro de taxa de decaimento do epsilon a cada execução
     :epsilon_min: valor mínimo que epsilon pode assumir
-    :return:
+    :return: retorna o novo valor de epsilon apos o decaimento
     """
 
     if (epsilon < epsilon_min): # nao pode ficar menor que o minimo definido
         return epsilon_min
     
     return epsilon - decay_rate # desconta a taxa
+
+
+# =====================================================================
+#    Function: Calculo de novos epsilons quando forcar novo spawn
+# =====================================================================
+def calcular_epsilon_dinamico(plataforma_nova, plataforma_antiga, epsilonInicial, k=2.4, epsilon_min=0.1):
+    """
+    Função de cálculo para a definição do novo valor de epsilon quando forçar uma definição de um novo spawn pro Amongois. Isso é
+    importante pois, se ele explorou muito uma área do mapa do antigo spawn, o epsilon já diminuiu, e forçar o spawn pra uma área pouco
+    explorada exige que o epsilon suba novamente. Usa-se então a diferença da distância do novo spawn pra definir o valor de epsilon
+    :plataforma_nova: nova plataforma definida como spawn atual
+    :plataforma_antiga: plataforma antiga que era o spawn anterior
+    :k: parâmetro pra ajustar a taxa de crescimento da sigmoide (como temos 24 plataformas, o valor padrão é 2.4)
+    :epsilon_min: valor mínimo que epsilon pode assumir
+    :return: retorna o novo valor de epsilon para o novo spawn
+    """
+    # Pega a distancia absoluta (independe de direcao negativa ou positiva)
+    distancia = abs(plataforma_nova - plataforma_antiga)
+        
+    # Aplicacao de uma sigmoide customizada (ja que epsilon varia ate 1, essa funcao se aplica muito bem)
+    # Se a distancia for pequena, retorna um valor menor, pois o Amongois nao se distanciou tanto de seu spawn, nao precisa explorar tanto
+    # Se a distancia for gigante, retorna perto de 1.0, pois o Amongois precisa explorar muito essa nova area que e distante de onde ele nascia
+    novo_epsilon = 1.0 / (1.0 + math.exp(-(distancia - 4) / k)) # sigmoide: (-5) pra jogar a sigmoide, e seu ponto de equilibrio que era 0 = 0.5, pra direita
+    
+    # Retorna o novo valor garantindo os limites entre o epsilon min e 1.0
+    return max(epsilon, max(epsilon_min, min(1.0, novo_epsilon)))
+
+
 
 # ======================================================================
 #                      INICIO DA APLICACAO PRO JOGO
@@ -142,7 +173,7 @@ linhaAntigoEstado = 0
 ultimo_spawn = 0           # guarda o ultimo spawn do boneco pra ajustar o epsilon quando mudar o spawn
 epsilon = 1.0              # começa em 100% aleatório
 epsilon_min = 0.1          # mantém 10% de chance exploração no final
-decay_rate = 0.0005        # taxa de decaimento por ação
+decay_rate = 0.00025        # taxa de decaimento por ação
 
 # =======================================================================
 #              PRATICA DO JOGO E APLICACAO DO ALGORITMO
@@ -181,7 +212,7 @@ while True:
 
     if (control == 2) : print(f"{epsilon:.4f}\n")
     print(f"O Amongois realizou a ação {acao_escolhida} e parou no estado {estado} com recompensa {recompensa}!") # impressão geral pra acompanhamento
-
+    
 
     # ============ Tratamento do estado e da direcao, binarios, para obter a plataforma correspondente e a direcao nela =============
     bits_estado = estado[2:7] # corta a string para a parte binaria somente do estado
@@ -196,17 +227,44 @@ while True:
 
 
     # ============== Aplicação do Q-Learning para atualização do valor da ação executada no estado atual ==============
-    if (recompensa != -100 and recompensa != 200): # aqui é verificado se ele nao morreu nem ganhou, implicando que o aprendizado tem que considerar a proxima casa ligada a atual
+    if (recompensa != -100 and recompensa != 300): # aqui é verificado se ele nao morreu nem ganhou, implicando que o aprendizado tem que considerar a proxima casa ligada a atual
         QLearning(q_table, linhaAntigoEstado, recompensa, acao_escolhida, linhaNovoEstado) # y = 1 -> pois esta dentro de um sequenciamento de acoes
 
 
     # ============== Detecção de morte ou vitoria (quando uma sequencia de acoes acaba) ===========
     else:  # quando ele morre ou ganha
-        QLearning(q_table, linhaAntigoEstado, recompensa, acao_escolhida, linhaNovoEstado, y=0) # y = 0 -> seu sequenciamento de acoes foi interrompido por uma morte e ele reinicia, entao ele nao pode considerar no aprendizado a proxima casa para valorar a atual
-        time.sleep(0.4)
+        QLearning(q_table, linhaAntigoEstado, recompensa, acao_escolhida, linhaNovoEstado, y=0) # y = 0 -> seu sequenciamento de acoes foi interrompido por uma morte/vitoria e ele respawna, entao ele nao pode considerar no aprendizado a proxima casa para valorar a atual
         
+        plataforma_atual = linhaNovoEstado//4
+
+        if (plataforma_atual != ultimo_spawn):
+            epsilon = calcular_epsilon_dinamico(plataforma_atual, ultimo_spawn, epsilon, epsilon_min=epsilon_min) # calcula o novo epsilon
+            ultimo_spawn = plataforma_atual # armazena o novo estado como o ultimo spawn, onde ele reiniciara
+        #time.sleep(0.4)
+        
+    
+    print()
+    print()
+    print()
+    # ==================== CONTROLE DE DEBUG (PRINTS) ====================
+    # Vamos pegar o valor da ação específica que foi atualizada para ver o "Antes" e "Depois"
+    intAcao = getintAcao(acao_escolhida)
+    
+    # Como o QLearning já rodar ali em cima, o ideal para ver o "Antes" 
+    # de verdade seria guardar o valor antes da função. Mas usando o histórico:
+    print("-" * 40)
+    print(f"Estado de Origem (Plataforma {linhaAntigoEstado//4}, Dir {linhaAntigoEstado%4}):")
+    print(f" -> Q-Valores atuais desta linha: {q_table[linhaAntigoEstado]}")
+    print(f" -> Ação tomada aqui foi '{acao_escolhida}' (Índice {intAcao})")
+    
+    print(f"\nEstado de Destino Alcançado (Plataforma {linhaNovoEstado//4}, Dir {linhaNovoEstado%4}):")
+    print(f" -> Q-Valores na linha de destino: {q_table[linhaNovoEstado]}")
+    
+    # Esse sim é o coração da sua lógica de explotação:
+    maior_q_destino = max(q_table[linhaNovoEstado])
+    index_melhor_acao = q_table[linhaNovoEstado].index(maior_q_destino)
+    print(f" -> Se o Amongois decidir por EXPLOITATION no próximo turno, a melhor ação será: {acoes[index_melhor_acao].upper()} (Valor Q: {maior_q_destino:.4f})")
+    print("-" * 40)
+
     # Armazenamento das execuções anteriores para a nova iteração do Q-Learning
     linhaAntigoEstado = linhaNovoEstado
-
-    print(f"{q_table[linhaAntigoEstado]}")
-    print()
