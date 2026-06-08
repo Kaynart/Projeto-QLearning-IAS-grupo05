@@ -202,8 +202,10 @@ def carregar_tabela_q(nome_arquivo="resultado.txt"):
 # =====================================================================
 def penaliza_giros(recompensa, qtd_GirosRedundantes):
     """
-    
-    
+    Função para tratar situação onde o robô fica girando redundantemente, por conta da recompensa negativa de pular ele preferia ficar girando.
+    Essa função só trata desse problema quando ele realmente aparece, isto é, quando o robô começa a girar redundantemente no mesmo estado.
+    Ela funciona utilizando o parâmetro de quantidade de giros redundantes e de maneira exponencial, penaliza a tomada de decisão de ficar girando.
+    Através disso, ele para de girar e continua o aprendizado.
     """
 
     if (qtd_GirosRedundantes == 1): return recompensa
@@ -212,10 +214,6 @@ def penaliza_giros(recompensa, qtd_GirosRedundantes):
     penalidade = 3 ** (qtd_GirosRedundantes//2)
 
     return recompensa - penalidade
-
-
-
-
 
 # ======================================================================
 #                      INICIO DA APLICACAO PRO JOGO
