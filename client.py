@@ -2,7 +2,9 @@
 import connection as cn             # importação do arquivo de connection para conexão local do jogo
 from random import randint, random  # importação de gerador aleatório de números pra randomização da ação
 import time                         # importação de pausa para garantir integridade do loop do jogo e algoritmo
-import math                         # para tratamento do epsilon greedy quando mudar a plataforma inicial
+import math                         # importação para tratamento do epsilon greedy quando mudar a plataforma inicial
+import os                           # importação para checar se o arquivo txt já existe
+
 
 # =====================================================================
 #        Function: Transforma determinada binaria em inteiro
@@ -153,6 +155,47 @@ def calcular_epsilon_dinamico(plataforma_nova, plataforma_antiga, epsilonInicial
     return max(epsilon, max(epsilon_min, min(1.0, novo_epsilon)))
 
 
+# =====================================================================
+#         Function: Salvar e Carregar a Q-Table
+# =====================================================================
+def salvar_tabela_q(matrizTabelaQ, nome_arquivo="resultado.txt"):
+    try:
+        with open(nome_arquivo, "w") as f:
+            for linha in matrizTabelaQ:
+                # Escreve Left, Right e Jump separados por espaço, sem cabeçalhos
+                f.write(f"{linha[0]} {linha[1]} {linha[2]}\n")
+        
+        print(f"-> [BACKUP] Tabela Q salva com sucesso em '{nome_arquivo}'!")
+    
+    except Exception as e:
+        print(f"Erro ao salvar o arquivo: {e}")
+
+
+def carregar_tabela_q(nome_arquivo="resultado.txt"):
+    tabela = [[0.0 for _ in range(3)] for _ in range(96)]
+    
+    # Se a tabela já existir, tenta ler os valores do arquivo txt para continuar o treino anterior
+    if os.path.exists(nome_arquivo): 
+        try:
+            with open(nome_arquivo, "r") as f:
+                linhas = f.readlines()
+                for i, linha in enumerate(linhas):
+                    if i < 96:
+                        valores = [float(x) for x in linha.strip().split()]
+                        if len(valores) == 3:
+                            tabela[i] = valores
+            
+            print(f"-> [SUCESSO] Memória carregada de '{nome_arquivo}'. Continuando treino anterior!")
+        
+        except Exception as e:
+            print(f"Erro ao ler arquivo existente ({e}). Inicializando com zeros.")
+    
+    # Se a tabela não existir, inicia do zero
+    else:
+        print(f"-> [AVISO] '{nome_arquivo}' não encontrado. Iniciando cérebro do zero (0.0).")
+        
+    return tabela
+
 
 # ======================================================================
 #                      INICIO DA APLICACAO PRO JOGO
@@ -163,8 +206,8 @@ conexao_jogo = cn.connect(2037)
 # Listagem de ações pra fazer a equivalência do random int (que será o índice) com a string de ação
 acoes = ["left", "right", "jump"]
 
-# Gera a Tabela Q por meio de uma matriz onde as linhas são os estados e as colunas, as ações 
-q_table = [[0.0 for _ in range(3)] for _ in range(96)] # 96 linhas com 3 elementos (colunas) inicializadno em 0.0
+# Puxando tabela Q do arquivo "resultado"
+q_table = carregar_tabela_q("resultado.txt")
 
 # DEFINIÇÃO DO ESTADO INICIAL
 linhaAntigoEstado = 0 
@@ -236,6 +279,8 @@ while True:
         QLearning(q_table, linhaAntigoEstado, recompensa, acao_escolhida, linhaNovoEstado, y=0) # y = 0 -> seu sequenciamento de acoes foi interrompido por uma morte/vitoria e ele respawna, entao ele nao pode considerar no aprendizado a proxima casa para valorar a atual
         
         plataforma_atual = linhaNovoEstado//4
+
+        salvar_tabela_q(q_table) 
 
         if (plataforma_atual != ultimo_spawn):
             epsilon = calcular_epsilon_dinamico(plataforma_atual, ultimo_spawn, epsilon, epsilon_min=epsilon_min) # calcula o novo epsilon
