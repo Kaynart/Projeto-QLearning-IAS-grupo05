@@ -254,7 +254,7 @@ qtd_GirosRedundantes = 0
 # Estrutura de controle  de epocas e gravacao do historico
 # -----------------------------------------------------------------------
 epoca_atual = 1            # qual epoca esta
-total_epocas = 10000        # total de epocas se o modo for por limite
+total_epocas = 10        # total de epocas se o modo for por limite
 historico_movimentacao = []
 
 # =======================================================================
@@ -270,9 +270,15 @@ control = 2
 rodando = True
 
 # loop do jogo baseado na variavel booleana
-while rodando:
+while True:
+    # ============= execucao "otima" aprendida pra quando terminar o aprendizado =================
+    if (not rodando):
+        valores_q_estado = q_table[linhaAntigoEstado]                       # pega os valores pro estado atual
+        maior_valor = max(valores_q_estado)                                 # pega o que tem maior valor
+        acao_escolhida = acoes[valores_q_estado.index(maior_valor)]         # retorna o indice dessa acao
+
     # =============== DECISAO MANUAL ================
-    if (control == 0):
+    elif (control == 0):
         indice = input(f"SELECIONA UMA AÇÃO [0 - left | 1 = right | 2 = jump]: ")
         acao_escolhida = acoes[int(indice)]         # obtendo, enfim, a acao decidida/
 
@@ -291,9 +297,10 @@ while rodando:
     estado, recompensa = cn.get_state_reward(conexao_jogo, acao_escolhida) # função do conecction.py que devolve o novo estado e a recompensa recebida pela ação executada
 
     if (control == 2): 
-        str_total = "INFINITO" if modo_infinito else total_epocas
-        print(f"-> [ÉPOCA {epoca_atual}/{str_total}] | Epsilon: {epsilon:.4f}")
-    print(f"O Amongois realizou a ação {acao_escolhida} e parou no estado {estado} com recompensa {recompensa}!") # impressão geral pra acompanhamento
+        if (rodando):
+            str_total = "INFINITO" if modo_infinito else total_epocas
+            print(f"-> [ÉPOCA {epoca_atual}/{str_total}] | Epsilon: {epsilon:.4f}")
+        print(f"O Amongois realizou a ação {acao_escolhida} e parou no estado {estado} com recompensa {recompensa}!") # impressão geral pra acompanhamento
     
     # ============ Tratamento do estado e da direcao, binarios, para obter a plataforma correspondente e a direcao nela =============
     bits_estado = estado[2:7] # corta a string para a parte binaria somente do estado
@@ -303,12 +310,13 @@ while rodando:
     direcao = getBinario(bits_direcao) # converte
 
     # armazena o passo atual na memória do episódio
-    historico_movimentacao.append({
-        "plataforma": plataforma,
-        "direcao": direcao,
-        "acao": acao_escolhida,
-        "recompensa": recompensa
-    })
+    if (rodando):
+        historico_movimentacao.append({
+            "plataforma": plataforma,
+            "direcao": direcao,
+            "acao": acao_escolhida,
+            "recompensa": recompensa
+        })
 
     # Pega a linha da tabela correspondente a esse estado novo alcancado
     linhaNovoEstado = getLinhaTabelaQ(plataforma, direcao)
@@ -344,11 +352,31 @@ while rodando:
             print("="*50 + "\n")
             rodando = False
         
+            # =======================================================================
+            # MOSTRAR ÚLTIMA MOVIMENTAÇÃO REALIZADA PELO AMONGOIS
+            # =======================================================================
+            opcao = input("Deseja mostrar a última movimentação realizada pelo Amongois? (S/N): ").strip().upper()
+
+            if opcao == "S":
+
+                print("\n" + "-"*30 + " HISTÓRICO DO ÚLTIMO EPISÓDIO " + "-"*30)
+
+                for i, passo in enumerate(historico_movimentacao, 1):
+                    print(f"Passo {i:02d} | Plataforma: {passo['plataforma']:02d} | Direção: {passo['direcao']} | Ação Tomada: {passo['acao'].upper()} | Recompensa: {passo['recompensa']}")
+                print("-"*90)
+
+                print("\n>>> Iniciando execução pelo caminho ótimo aprendido...\n")
+            else:
+                print("\nTreinamento finalizado. Tabela Q salva e pronta para o próximo uso!")
+                break # finaliza
+                
+
         if rodando:
             epoca_atual += 1
             historico_movimentacao.clear() # limpa para o próximo round coletar dados limpos
-            linhaAntigoEstado = 0          # garante o reset de origem
             print()
+
+    # Armazenamento das execuções anteriores para a nova iteração do Q-Learning
 
     # ==================== CONTROLE DE DEBUG (PRINTS) ====================
     if rodando:
@@ -370,22 +398,7 @@ while rodando:
         print(f" -> Se o Amongois decidir por EXPLOITATION no próximo turno, a melhor ação será: {acoes[index_melhor_acao].upper()} (Valor Q: {maior_q_destino:.4f})")
         print("-" * 40)
 
-        # Armazenamento das execuções anteriores para a nova iteração do Q-Learning
-        linhaAntigoEstado = linhaNovoEstado
+    # ATUALIZACAO PRA PROXIMA EXECUCAO
+    linhaAntigoEstado = linhaNovoEstado
 
 
-# =======================================================================
-# MOSTRAR ÚLTIMA MOVIMENTAÇÃO REALIZADA PELO AMONGOIS
-# =======================================================================
-opcao = input("Deseja mostrar a última movimentação realizada pelo Amongois? (S/N): ").strip().upper()
-
-if opcao == "S":
-
-    print("\n" + "-"*30 + " HISTÓRICO DO ÚLTIMO EPISÓDIO " + "-"*30)
-
-    for i, passo in enumerate(historico_movimentacao, 1):
-        print(f"Passo {i:02d} | Plataforma: {passo['plataforma']:02d} | Direção: {passo['direcao']} | Ação Tomada: {passo['acao'].upper()} | Recompensa: {passo['recompensa']}")
-    print("-"*90)
-
-else:
-    print("\nTreinamento finalizado. Tabela Q salva e pronta para o próximo uso!")
