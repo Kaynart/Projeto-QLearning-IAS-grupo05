@@ -218,6 +218,16 @@ def penaliza_giros(recompensa, qtd_GirosRedundantes):
 # ======================================================================
 #                      INICIO DA APLICACAO PRO JOGO
 # ======================================================================
+
+# interface para controlar se vai ser por epocas ou infinito
+
+print("SELECIONE O MODO DE TREINAMENTO")
+print("[ 1 ] Treinamento Definido por Épocas")
+print("[ 2 ] Treinamento Infinito")
+modo_escolhido = input("Escolha uma opção (1 ou 2): ").strip()
+
+modo_infinito = True if modo_escolhido == "2" else False
+
 # Realização da conexão com o jogo através da porta
 conexao_jogo = cn.connect(2037)
 
@@ -231,6 +241,7 @@ q_table = carregar_tabela_q("resultado.txt")
 linhaAntigoEstado = 0 
 
 # Parâmetros pro Epsilon Greedy
+
 ultimo_spawn = 0           # guarda o ultimo spawn do boneco pra ajustar o epsilon quando mudar o spawn
 epsilon = 1.0              # começa em 100% aleatório
 epsilon_min = 0.1          # mantém 10% de chance exploração no final
@@ -239,30 +250,36 @@ decay_rate = 0.0001        # taxa de decaimento por ação
 # Política de recompensa negativa gradual ao girar infinitamente
 qtd_GirosRedundantes = 0
 
+# -----------------------------------------------------------------------
+# Estrutura de controle  de epocas e gravacao do historico
+# -----------------------------------------------------------------------
+epoca_atual = 1            # qual epoca esta
+total_epocas = 10000        # total de epocas se o modo for por limite
+historico_movimentacao = []
+
 # =======================================================================
 #              PRATICA DO JOGO E APLICACAO DO ALGORITMO
 # =======================================================================
-#Aqui vocês irão colocar seu algoritmo de aprendizado
-
 # variável para definir se quer mover o boneco ou somente analisar o algoritmo automatico
 control = 2
 # 0 -> Controle Manual com jogador
 # 1 -> Algoritmo QLearning com ações aleatórias
 # 2 -> Algoritmo QLearning com Epsilon Greedy
 
-# Loop do jogo
-while True:
+# booleana controlando o loop principal
+rodando = True
+
+# loop do jogo baseado na variavel booleana
+while rodando:
     # =============== DECISAO MANUAL ================
     if (control == 0):
         indice = input(f"SELECIONA UMA AÇÃO [0 - left | 1 = right | 2 = jump]: ")
         acao_escolhida = acoes[int(indice)]         # obtendo, enfim, a acao decidida/
 
-
     # =============== DECISAO ALGORITMICA ALEATÓRIA ================
     elif (control == 1):
         indice = randint(0,2)                       # pega o índice aleatório pra ação
         acao_escolhida = acoes[indice]              # obtendo, enfim, a ação randomizada
-
 
     # =============== DECISAO ALGORITMICA EPSILON-GREEDY ================
     elif (control == 2):
@@ -270,14 +287,14 @@ while True:
         acao_escolhida = acoes[indice]                                              # obtendo, enfim, a ação Epsilon Greedy
         epsilon = decair_epsilon(epsilon, decay_rate, epsilon_min)                  # decai o epsilon pras proximas execucoes
 
-
     # ============ Obtencao do estado e recompensa pela acao executada ==============
     estado, recompensa = cn.get_state_reward(conexao_jogo, acao_escolhida) # função do conecction.py que devolve o novo estado e a recompensa recebida pela ação executada
 
-    if (control == 2) : print(f"{epsilon:.4f}\n")
+    if (control == 2): 
+        str_total = "INFINITO" if modo_infinito else total_epocas
+        print(f"-> [ÉPOCA {epoca_atual}/{str_total}] | Epsilon: {epsilon:.4f}")
     print(f"O Amongois realizou a ação {acao_escolhida} e parou no estado {estado} com recompensa {recompensa}!") # impressão geral pra acompanhamento
     
-
     # ============ Tratamento do estado e da direcao, binarios, para obter a plataforma correspondente e a direcao nela =============
     bits_estado = estado[2:7] # corta a string para a parte binaria somente do estado
     plataforma = getBinario(bits_estado) # converte
@@ -285,10 +302,16 @@ while True:
     bits_direcao = estado[7:9] # corta a string para a parte binaria somente da direcao
     direcao = getBinario(bits_direcao) # converte
 
+    # armazena o passo atual na memória do episódio
+    historico_movimentacao.append({
+        "plataforma": plataforma,
+        "direcao": direcao,
+        "acao": acao_escolhida,
+        "recompensa": recompensa
+    })
 
     # Pega a linha da tabela correspondente a esse estado novo alcancado
     linhaNovoEstado = getLinhaTabelaQ(plataforma, direcao)
-
 
     # ============== Aplicação do Q-Learning para atualização do valor da ação executada no estado atual ==============
     if (recompensa != -100 and recompensa != 300): # aqui é verificado se ele nao morreu nem ganhou, implicando que o aprendizado tem que considerar a proxima casa ligada a atual
@@ -298,6 +321,7 @@ while True:
             qtd_GirosRedundantes += 1
             recompensa = penaliza_giros(recompensa, qtd_GirosRedundantes) # penaliza giros redundantes se girou mais uma vez
 
+        
         QLearning(q_table, linhaAntigoEstado, recompensa, acao_escolhida, linhaNovoEstado, y=0.9) 
 
     # ============== Detecção de morte ou vitoria (quando uma sequencia de acoes acaba) ===========
@@ -312,31 +336,56 @@ while True:
         if (plataforma_atual != ultimo_spawn):
             epsilon = calcular_epsilon_dinamico(plataforma_atual, ultimo_spawn, epsilon, epsilon_min=epsilon_min) # calcula o novo epsilon
             ultimo_spawn = plataforma_atual # armazena o novo estado como o ultimo spawn, onde ele reiniciara
-        #time.sleep(0.4)
         
-    
-    print()
-    print()
-    print()
-    # ==================== CONTROLE DE DEBUG (PRINTS) ====================
-    # Vamos pegar o valor da ação específica que foi atualizada para ver o "Antes" e "Depois"
-    intAcao = getintAcao(acao_escolhida)
-    
-    # Como o QLearning já rodar ali em cima, o ideal para ver o "Antes" 
-    # de verdade seria guardar o valor antes da função. Mas usando o histórico:
-    print("-" * 40)
-    print(f"Estado de Origem (Plataforma {linhaAntigoEstado//4}, Dir {linhaAntigoEstado%4}):")
-    print(f" -> Q-Valores atuais desta linha: {q_table[linhaAntigoEstado]}")
-    print(f" -> Ação tomada aqui foi '{acao_escolhida}' (Índice {intAcao})")
-    
-    print(f"\nEstado de Destino Alcançado (Plataforma {linhaNovoEstado//4}, Dir {linhaNovoEstado%4}):")
-    print(f" -> Q-Valores na linha de destino: {q_table[linhaNovoEstado]}")
-    
-    # Esse sim é o coração da sua lógica de explotação:
-    maior_q_destino = max(q_table[linhaNovoEstado])
-    index_melhor_acao = q_table[linhaNovoEstado].index(maior_q_destino)
-    print(f" -> Se o Amongois decidir por EXPLOITATION no próximo turno, a melhor ação será: {acoes[index_melhor_acao].upper()} (Valor Q: {maior_q_destino:.4f})")
-    print("-" * 40)
+        # verificação de parada 
+        if not modo_infinito and epoca_atual >= total_epocas:
+            print("\n" + "="*50)
+            print(f" CHEGAMOS AO FIM DA ÉPOCA LIMITE ({total_epocas})!")
+            print("="*50 + "\n")
+            rodando = False
+        
+        if rodando:
+            epoca_atual += 1
+            historico_movimentacao.clear() # limpa para o próximo round coletar dados limpos
+            linhaAntigoEstado = 0          # garante o reset de origem
+            print()
 
-    # Armazenamento das execuções anteriores para a nova iteração do Q-Learning
-    linhaAntigoEstado = linhaNovoEstado
+    # ==================== CONTROLE DE DEBUG (PRINTS) ====================
+    if rodando:
+        print()
+        print()
+        print()
+        intAcao = getintAcao(acao_escolhida)
+        
+        print("-" * 40)
+        print(f"Estado de Origem (Plataforma {linhaAntigoEstado//4}, Dir {linhaAntigoEstado%4}):")
+        print(f" -> Q-Valores atuais desta linha: {q_table[linhaAntigoEstado]}")
+        print(f" -> Ação tomada aqui foi '{acao_escolhida}' (Índice {intAcao})")
+        
+        print(f"\nEstado de Destino Alcançado (Plataforma {linhaNovoEstado//4}, Dir {linhaNovoEstado%4}):")
+        print(f" -> Q-Valores na linha de destino: {q_table[linhaNovoEstado]}")
+        
+        maior_q_destino = max(q_table[linhaNovoEstado])
+        index_melhor_acao = q_table[linhaNovoEstado].index(maior_q_destino)
+        print(f" -> Se o Amongois decidir por EXPLOITATION no próximo turno, a melhor ação será: {acoes[index_melhor_acao].upper()} (Valor Q: {maior_q_destino:.4f})")
+        print("-" * 40)
+
+        # Armazenamento das execuções anteriores para a nova iteração do Q-Learning
+        linhaAntigoEstado = linhaNovoEstado
+
+
+# =======================================================================
+# MOSTRAR ÚLTIMA MOVIMENTAÇÃO REALIZADA PELO AMONGOIS
+# =======================================================================
+opcao = input("Deseja mostrar a última movimentação realizada pelo Amongois? (S/N): ").strip().upper()
+
+if opcao == "S":
+
+    print("\n" + "-"*30 + " HISTÓRICO DO ÚLTIMO EPISÓDIO " + "-"*30)
+
+    for i, passo in enumerate(historico_movimentacao, 1):
+        print(f"Passo {i:02d} | Plataforma: {passo['plataforma']:02d} | Direção: {passo['direcao']} | Ação Tomada: {passo['acao'].upper()} | Recompensa: {passo['recompensa']}")
+    print("-"*90)
+
+else:
+    print("\nTreinamento finalizado. Tabela Q salva e pronta para o próximo uso!")
