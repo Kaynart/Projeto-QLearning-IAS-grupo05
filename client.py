@@ -254,7 +254,7 @@ qtd_GirosRedundantes = 0
 # Estrutura de controle  de epocas e gravacao do historico
 # -----------------------------------------------------------------------
 epoca_atual = 1            # qual epoca esta
-total_epocas = 10        # total de epocas se o modo for por limite
+total_epocas = 10000       # total de epocas se o modo for por limite
 historico_movimentacao = []
 
 # =======================================================================
