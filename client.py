@@ -152,7 +152,7 @@ def calcular_epsilon_dinamico(plataforma_nova, plataforma_antiga, epsilonInicial
     novo_epsilon = 1.0 / (1.0 + math.exp(-(distancia - 4) / k)) # sigmoide: (-5) pra jogar a sigmoide, e seu ponto de equilibrio que era 0 = 0.5, pra direita
     
     # Retorna o novo valor garantindo os limites entre o epsilon min e 1.0
-    return max(epsilon, max(epsilon_min, min(1.0, novo_epsilon)))
+    return max(epsilonInicial, max(epsilon_min, min(1.0, novo_epsilon)))
 
 
 # =====================================================================
@@ -330,7 +330,7 @@ while True:
             recompensa = penaliza_giros(recompensa, qtd_GirosRedundantes) # penaliza giros redundantes se girou mais uma vez
 
         
-        QLearning(q_table, linhaAntigoEstado, recompensa, acao_escolhida, linhaNovoEstado, y=0.9) 
+        QLearning(q_table, linhaAntigoEstado, recompensa, acao_escolhida, linhaNovoEstado, y=0.9)
 
     # ============== Detecção de morte ou vitoria (quando uma sequencia de acoes acaba) ===========
     else:  # quando ele morre ou ganha
